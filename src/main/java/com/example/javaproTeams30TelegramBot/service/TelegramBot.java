@@ -43,6 +43,10 @@ public class TelegramBot extends TelegramLongPollingBot {
                 startMessageReceived(chatId, update.getMessage().getChat().getFirstName());
                 break;
             }
+            case "/myself": {
+                sendMessage(chatId, telegramBotsService.getUserInfo());
+                break;
+            }
             default: sendMessage(chatId, "I'm sorry, but i'm don't understand you!");
         }
 
