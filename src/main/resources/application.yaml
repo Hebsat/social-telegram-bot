@@ -1,3 +1,7 @@
+server:
+  port: 8087
 bot:
   name: JavaTeam30Bot
   token: 5821691600:AAHeMv01ySdp63uglQ1ob0VQh3zSs_LagEA
+server-url: http://localhost:8086
+token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJyaG9uY3VzLm51bGxhbUB5YWhvby5lZHUiLCJpYXQiOjE2NzE3MDI2MjYsImV4cCI6MTY3NTMwMjYyNn0.xzjamH3M3mGON_qbm3d5i1tgDaNO9SnCdOLkbneGEEk
