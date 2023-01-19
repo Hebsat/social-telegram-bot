@@ -37,6 +37,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             return;
         }
         String messageText = update.getMessage().getText();
+        log.info("Received message by " + update.getMessage().getChat().getUserName() + ": " + messageText);
         long chatId = update.getMessage().getChatId();
         switch (messageText) {
             case "/start": {
