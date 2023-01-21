@@ -37,34 +37,37 @@ public class TelegramBot extends TelegramLongPollingBot {
             return;
         }
         String messageText = update.getMessage().getText();
-        log.info("Received message by " + update.getMessage().getChat().getUserName() + ": " + messageText);
-        long chatId = update.getMessage().getChatId();
+        log.info("Received message by " + update.getMessage().getFrom().getUserName() + ": " + messageText);
+        long userId = update.getMessage().getFrom().getId();
         switch (messageText) {
             case "/start": {
-                startMessageReceived(chatId, update.getMessage().getChat().getFirstName());
+                sendMessage(telegramBotsService.startMessageReceived(
+                        userId, update.getMessage().getChat().getFirstName()));
+                break;
+            }
+            case "/auth": {
+                sendMessage(telegramBotsService.authMessageReceived(userId));
                 break;
             }
             case "/myself": {
-                sendMessage(chatId, telegramBotsService.getUserInfo());
+                sendMessage(telegramBotsService.myselfMessageReceived(userId));
                 break;
             }
-            default: sendMessage(chatId, "I'm sorry, but i'm don't understand you!");
+            case "/stop": {
+                sendMessage(telegramBotsService.stopMessageReceived(userId));
+                break;
+            }
+            case "/help": {
+                sendMessage(telegramBotsService.helpMessageReceived(userId));
+                break;
+            }
+            default: sendMessage(telegramBotsService.handleCurrentState(userId, messageText));
         }
-
-
     }
 
-    private void startMessageReceived(long chatId, String name) {
-        String answer = "Greetings you, " + name + "! Welcome to Team30TelegramBot!";
-        sendMessage(chatId, answer);
-    }
-
-    private void sendMessage(long chatId, String message) {
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(chatId);
-        sendMessage.setText(message);
+    private void sendMessage(SendMessage message) {
         try {
-            execute(sendMessage);
+            execute(message);
         }
         catch (TelegramApiException e) {
             log.error("Error occurred: " + e.getMessage());
