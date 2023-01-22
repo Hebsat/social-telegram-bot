@@ -49,10 +49,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage(telegramBotsService.authMessageReceived(userId));
                 break;
             }
-            case "/myself": {
-                sendMessage(telegramBotsService.myselfMessageReceived(userId));
-                break;
-            }
             case "/stop": {
                 sendMessage(telegramBotsService.stopMessageReceived(userId));
                 break;
@@ -61,7 +57,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage(telegramBotsService.helpMessageReceived(userId));
                 break;
             }
-            default: sendMessage(telegramBotsService.handleCurrentState(userId, messageText));
+            default: telegramBotsService.handleCurrentAuthState(userId, messageText).forEach(this::sendMessage);
         }
     }
 

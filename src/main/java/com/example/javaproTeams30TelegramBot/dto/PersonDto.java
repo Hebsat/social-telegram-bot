@@ -14,7 +14,6 @@ public class PersonDto {
 
     private String phone;
 
-    @JsonProperty(defaultValue = "photo")
     private String photo;
 
     private String about;
@@ -22,6 +21,12 @@ public class PersonDto {
     private String city;
 
     private String country;
+
+    private String token;
+
+    private WeatherDto weather;
+
+    private CurrencyDto currency;
 
     private Boolean online;
 

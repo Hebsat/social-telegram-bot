@@ -16,11 +16,4 @@ public class CommonDto<T> {
     private Long total;
 
     private T data;
-
-    @Override
-    public String toString() {
-        return "CommonRs{" +
-                "data=" + data +
-                '}';
-    }
 }

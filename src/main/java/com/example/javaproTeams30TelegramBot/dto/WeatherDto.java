@@ -2,14 +2,16 @@ package com.example.javaproTeams30TelegramBot.dto;
 
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 public class WeatherDto {
 
-    private String clouds;
+    private String description;
 
-    private String temp;
+    private Double temp;
 
     private String city;
 
-    private String date;
+    private LocalDateTime date;
 }

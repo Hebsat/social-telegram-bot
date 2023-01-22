@@ -5,4 +5,6 @@ public interface UserTokenCache {
     void storeToken(Long userId, String token);
 
     String getToken(Long userId);
+
+    void removeToken(Long userId);
 }

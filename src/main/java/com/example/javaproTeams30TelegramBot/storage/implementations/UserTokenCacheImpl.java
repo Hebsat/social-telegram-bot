@@ -20,4 +20,9 @@ public class UserTokenCacheImpl implements UserTokenCache {
     public String getToken(Long userId) {
         return userTokens.getOrDefault(userId, null);
     }
+
+    @Override
+    public void removeToken(Long userId) {
+        userTokens.remove(userId);
+    }
 }

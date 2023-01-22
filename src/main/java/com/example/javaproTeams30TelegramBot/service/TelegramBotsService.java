@@ -1,9 +1,19 @@
 package com.example.javaproTeams30TelegramBot.service;
 
-import com.example.javaproTeams30TelegramBot.model.BotStates;
-import com.example.javaproTeams30TelegramBot.storage.interfaces.BotStatesCache;
+import com.example.javaproTeams30TelegramBot.dto.CommonDto;
+import com.example.javaproTeams30TelegramBot.dto.CurrencyDto;
+import com.example.javaproTeams30TelegramBot.dto.PersonDto;
+import com.example.javaproTeams30TelegramBot.dto.WeatherDto;
+import com.example.javaproTeams30TelegramBot.mappers.PersonMapper;
+import com.example.javaproTeams30TelegramBot.model.AuthStates;
+import com.example.javaproTeams30TelegramBot.storage.interfaces.AuthStatesCache;
 import com.example.javaproTeams30TelegramBot.storage.interfaces.UserDataCache;
 import com.example.javaproTeams30TelegramBot.storage.interfaces.UserTokenCache;
+import com.example.javaproTeams30TelegramBot.util.deserializers.CurrenciesDeserializer;
+import com.example.javaproTeams30TelegramBot.util.deserializers.PersonDeserializer;
+import com.example.javaproTeams30TelegramBot.util.deserializers.WeatherDeserializer;
+import com.google.common.reflect.TypeToken;
+import com.google.gson.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpResponse;
@@ -12,15 +22,17 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
-import org.cloudinary.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.StringJoiner;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -29,132 +41,148 @@ public class TelegramBotsService {
 
     @Value("${server-url}")
     private String url;
+    private final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(PersonDto.class, new PersonDeserializer())
+            .registerTypeAdapter(WeatherDto.class, new WeatherDeserializer())
+            .registerTypeAdapter(CurrencyDto.class, new CurrenciesDeserializer())
+            .create();
+    private static final String HELP_MESSAGE = "JavaTeam30Bot is a training project.\nTo control you can sent these commands:\n\n" +
+            "Main commands:\n\n/start - to start the dialog with bot\n/stop - to reset you dialog and remove all data\n/auth - " +
+            "to start authorization dialog\n/help - to get this message\n\nAfter authorization commands:\n/myself - to get personal" +
+            " data about yourself\n/friends - to get page of your friends\n";
+    private static final String UNAUTHORIZED_MESSAGE = "You are unauthorized.\nTo authorize use /auth";
 
-    private final BotStatesCache botStatesCache;
+    private final AuthStatesCache authStatesCache;
     private final UserDataCache userDataCache;
     private final UserTokenCache userTokenCache;
 
     public SendMessage startMessageReceived(long userId, String name) {
-        String answer = "Greetings you, " + name + "! Welcome to Team30TelegramBot!\nAuthorize please (/auth)\n/help for more information";
-        if (!botStatesCache.containsStatus(userId)) {
-            botStatesCache.setState(userId, BotStates.UNAUTHORIZED);
+        String answer = "Greetings you, " + name + "! Welcome to JavaTeam30Bot!\nAuthorize to get more " +
+                "functions (/auth)\n/help for more information";
+        if (!authStatesCache.containsAuthState(userId)) {
+            authStatesCache.setAuthState(userId, AuthStates.UNAUTHORIZED);
         }
         return getSendMessage(userId, answer);
     }
 
     public SendMessage stopMessageReceived(long userId) {
         userDataCache.clearUserData(userId);
-        botStatesCache.setState(userId, BotStates.UNAUTHORIZED);
+        authStatesCache.setAuthState(userId, AuthStates.UNAUTHORIZED);
+        userTokenCache.removeToken(userId);
         String answer = "Authenticate data removed";
         return getSendMessage(userId, answer);
     }
 
     public SendMessage authMessageReceived(long userId) {
         String answer = "Enter your email:";
-        botStatesCache.setState(userId, BotStates.ASK_LOGIN);
+        authStatesCache.setAuthState(userId, AuthStates.ASK_LOGIN);
         return getSendMessage(userId, answer);
     }
 
     public SendMessage helpMessageReceived(long userId) {
-        String answer = "In development";
-        return getSendMessage(userId, answer);
+        return getSendMessage(userId, HELP_MESSAGE);
     }
 
-    public SendMessage handleCurrentState(Long userId, String message) {
-        String answer;
-        BotStates currentState = botStatesCache.getBotState(userId);
-        switch (currentState) {
+    public List<SendMessage> handleCurrentAuthState(Long userId, String message) {
+        AuthStates currentAuthState = authStatesCache.getAuthState(userId);
+        switch (currentAuthState) {
             case ASK_LOGIN: {
                 userDataCache.storeUserData(userId, message);
-                botStatesCache.setState(userId, BotStates.ASK_PASSWORD);
-                answer = "Enter your password:";
-                break;
+                authStatesCache.setAuthState(userId, AuthStates.ASK_PASSWORD);
+                return List.of(getSendMessage(userId,"Enter your password:"));
             }
             case ASK_PASSWORD: {
                 String email = userDataCache.getUserData(userId);
-                answer = authorizePerson(userId, email, message);
-                break;
+                userDataCache.clearUserData(userId);
+                return List.of(getSendMessage(userId,authorizePerson(userId, email, message)));
             }
-            default: answer = handleCurrentMessage(userId, message);
+            default: return handleCurrentMessage(userId, message);
         }
-        return getSendMessage(userId, answer);
     }
 
-    private String handleCurrentMessage(Long userId, String message) {
-        String answer = "I'm sorry, but i'm don't understand you!";
-        if (message.startsWith("do something")) {
-            return  "done something";
+    private List<SendMessage> handleCurrentMessage(Long userId, String message) {
+        switch (message) {
+            case "/myself": return getInfoAboutMyself(userId);
+            case "/friends": return getUsersFriends(userId);
+            default: return handleNoneCommandMessage(userId, message);
         }
-        return answer;
+    }
+
+    private List<SendMessage> handleNoneCommandMessage(Long userId, String message) {
+        String answer = "I'm sorry, but i'm don't understand you! Maybe you are not authorized. Use /auth to authorize.";
+        if (message.startsWith("do something")) {
+            return  List.of(getSendMessage(userId, "done something"));
+        }
+        return List.of(getSendMessage(userId, answer));
     }
 
     private String authorizePerson(Long userId, String email, String password) {
+        Type personType = new TypeToken<CommonDto<PersonDto>>(){}.getType();
         String answer = "";
         HttpClient httpClient = HttpClientBuilder.create().build();
         try {
             HttpPost request = new HttpPost(url + "/api/v1/auth/login");
-            JSONObject login = new JSONObject();
-            login.put("email", email);
-            login.put("password", password);
+            JsonObject login = new JsonObject();
+            login.addProperty("email", email);
+            login.addProperty("password", password);
             StringEntity params = new StringEntity(login.toString());
             request.addHeader("content-type", "application/json");
             request.setEntity(params);
             HttpResponse response = httpClient.execute(request);
             if (response.getStatusLine().getStatusCode() != 200) {
-                botStatesCache.setState(userId, BotStates.UNAUTHORIZED);
+                authStatesCache.setAuthState(userId, AuthStates.UNAUTHORIZED);
                 return "You entered incorrect data. Authorization failed!";
             }
             String jsonData = EntityUtils.toString(response.getEntity());
-            JSONObject person = new JSONObject(jsonData).getJSONObject("data");
-            String token = person.getString("token");
-            String name = person.getString("first_name") + " " + person.get("last_name");
-            userTokenCache.storeToken(userId, token);
-            answer = "You authorized as " + name + "! Good job!";
+            CommonDto<PersonDto> person = gson.fromJson(jsonData, personType);
+            userTokenCache.storeToken(userId, person.getData().getToken());
+            answer = "You authorized as " + person.getData().getFirstName() + "! Good job!";
         }
         catch (IOException e) {
             log.error(e.getMessage());
         }
-        botStatesCache.setState(userId, BotStates.AUTHORIZED);
+        authStatesCache.setAuthState(userId, AuthStates.AUTHORIZED);
         return answer;
     }
 
-    public SendMessage myselfMessageReceived(Long userId) {
+    public List<SendMessage> getInfoAboutMyself(Long userId) {
+        Type personType = new TypeToken<CommonDto<PersonDto>>(){}.getType();
         String token = userTokenCache.getToken(userId);
+        CommonDto<PersonDto> person = new CommonDto<>();
         if (token == null) {
-            return getSendMessage(userId,"unauthorized person");
+            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
         }
-        StringJoiner response = new StringJoiner(System.lineSeparator());
         try {
             URLConnection connection = new URL(url + "/api/v1/users/me").openConnection();
             connection.setRequestProperty("Authorization", token);
             String jsonData = new String(connection.getInputStream().readAllBytes());
-            JSONObject person = new JSONObject(jsonData).getJSONObject("data");
-            if (person.has("first_name")) {
-                response.add("First name: " + person.get("first_name"));
-            }
-            if (person.has("last_name")) {
-                response.add("Last name: " + person.get("last_name"));
-            }
-            if (person.has("birth_date")) {
-                response.add("Birthday: " + person.get("birth_date"));
-            }
-            if (person.has("country")) {
-                response.add("Country: " + person.get("country"));
-            }
-            if (person.has("city")) {
-                response.add("City: " + person.get("city"));
-            }
-            if (person.has("about")) {
-                response.add("About: " + person.get("about"));
-            }
-            if (person.has("last_online_time")) {
-                response.add("Last online time: " + person.get("last_online_time"));
-            }
+            person = gson.fromJson(jsonData, personType);
         }
         catch (IOException e) {
             log.error(e.getMessage());
         }
-        return getSendMessage(userId,response.toString());
+        return List.of(getSendMessage(userId,PersonMapper.getPersonInfo(person.getData())));
+    }
+
+    public List<SendMessage> getUsersFriends(Long userId) {
+        Type listOfPersons = new TypeToken<CommonDto<List<PersonDto>>>(){}.getType();
+        String token = userTokenCache.getToken(userId);
+        if (token == null) {
+            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
+        }
+        List<SendMessage> answer = new ArrayList<>();
+        try {
+            URLConnection connection = new URL(url + "/api/v1/friends").openConnection();
+            connection.setRequestProperty("Authorization", token);
+            String jsonData = new String(connection.getInputStream().readAllBytes());
+            CommonDto<List<PersonDto>> persons = gson.fromJson(jsonData, listOfPersons);
+            persons.getData().forEach(personDto -> answer.add(getSendMessage(userId, PersonMapper.getPersonInfo(personDto))));
+            answer.add(getSendMessage(userId, "You have totally " + persons.getTotal() + " friends"));
+        }
+        catch (IOException e) {
+            log.error(e.getMessage());
+        }
+        return answer;
     }
 
     private SendMessage getSendMessage(Long userId, String message) {
