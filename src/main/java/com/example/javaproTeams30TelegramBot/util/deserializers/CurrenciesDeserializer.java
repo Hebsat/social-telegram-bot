@@ -11,10 +11,8 @@ public class CurrenciesDeserializer implements JsonDeserializer<CurrencyDto> {
     public CurrencyDto deserialize(JsonElement jsonElement, Type type, JsonDeserializationContext jsonDeserializationContext) throws JsonParseException {
         CurrencyDto currency = new CurrencyDto();
         JsonObject jsonObject = jsonElement.getAsJsonObject();
-        if (!jsonObject.isEmpty()) {
-            currency.setUsd(jsonObject.get("usd").getAsDouble());
-            currency.setEuro(jsonObject.get("euro").getAsDouble());
-        }
+        currency.setUsd(jsonObject.get("usd").getAsString());
+        currency.setEuro(jsonObject.get("euro").getAsString());
         return currency;
     }
 }

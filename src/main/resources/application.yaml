@@ -3,4 +3,6 @@ server:
 bot:
   name: JavaTeam30Bot
   token: 5821691600:AAHeMv01ySdp63uglQ1ob0VQh3zSs_LagEA
+  pagination:
+    friend-size: 2
 server-url: http://194.87.244.66:8086

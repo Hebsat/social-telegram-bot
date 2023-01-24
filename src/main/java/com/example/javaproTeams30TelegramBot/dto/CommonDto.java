@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class CommonDto<T> {
 
-    private Long timestamp = System.currentTimeMillis();
+    private Long timestamp;
 
     private Integer offset;
 

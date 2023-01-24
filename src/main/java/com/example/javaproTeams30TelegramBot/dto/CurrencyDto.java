@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class CurrencyDto {
 
-    private Double usd;
+    private String usd;
 
-    private Double euro;
+    private String euro;
 }

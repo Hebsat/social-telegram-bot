@@ -15,9 +15,6 @@ public class NotificationDto {
     @JsonProperty("notification_type")
     private String notificationType;
 
-    @JsonProperty("sent_time")
-    private LocalDateTime sentTime;
-
     @JsonProperty("entity_author")
     private PersonDto entityAuthor;
 }
