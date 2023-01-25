@@ -196,7 +196,7 @@ public class TelegramBotsService {
         List<SendMessage> answer = new ArrayList<>();
         try {
             URLConnection connection = new URL(url + "/api/v1/friends?offset=" +
-                    PaginationAdapter.getOffset(pageNumber, friendPageSize) + "&perPage=" + friendPageSize).openConnection();
+                    pageNumber + "&perPage=" + friendPageSize).openConnection();
             connection.setRequestProperty("Authorization", token);
             String jsonData = new String(connection.getInputStream().readAllBytes());
             CommonDto<List<PersonDto>> persons = gson.fromJson(jsonData, listOfPersons);
