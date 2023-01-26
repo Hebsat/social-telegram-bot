@@ -3,6 +3,7 @@ package com.example.javaproTeams30TelegramBot.controller;
 import com.example.javaproTeams30TelegramBot.dto.NotificationDto;
 import com.example.javaproTeams30TelegramBot.service.TelegramBot;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
@@ -13,11 +14,12 @@ public class BotController {
     private final TelegramBot telegramBot;
 
     @PostMapping("/bot")
-    public void sendNotification(@RequestBody NotificationDto notification, @RequestParam long userId) {
+    public ResponseEntity<?> sendNotification(@RequestBody NotificationDto notification, @RequestParam long userId) {
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(userId);
         sendMessage.setText(getMessageText(notification));
         telegramBot.sendMessage(sendMessage);
+        return ResponseEntity.ok().build();
     }
 
     private String getMessageText(NotificationDto notification) {
@@ -25,13 +27,13 @@ public class BotController {
                 (notification.getEntityAuthor().getLastName() == null ?
                         "" : " " + notification.getEntityAuthor().getLastName());
         switch (notification.getNotificationType()) {
-            case "POST": return "User " + userName + " create new post!";
-            case "POST_COMMENT": return "User " + userName + " commented your post!";
-            case "COMMENT_COMMENT": return "User " + userName + " commented your comment!";
+            case "POST": return "User " + userName + " create new post \"" + notification.getInfo() + "\"!";
+            case "POST_COMMENT":
+            case "COMMENT_COMMENT": return "User " + userName + " commented your " + notification.getInfo() + "!";
             case "FRIEND_REQUEST": return "User " + userName + " wants to be your fiend!!";
-            case "MESSAGE": return "User " + userName + " send message to you!";
-            case "FRIEND_BIRTHDAY": return "Your friend " + userName + " has a birthday today!";
-            case "POST_LIKE": return "User " + userName + " liked your post!";
+            case "MESSAGE": return "User " + userName + " send message to you: " + notification.getInfo();
+            case "FRIEND_BIRTHDAY": return "Your friend " + userName + " has a birthday today! He is " + notification.getInfo();
+            case "POST_LIKE": return "User " + userName + " liked your " + notification.getInfo() + "!";
             default: return "It is unknown notification";
         }
     }

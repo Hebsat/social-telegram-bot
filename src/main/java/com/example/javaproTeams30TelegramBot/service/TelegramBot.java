@@ -5,14 +5,34 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
+import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TelegramBot extends TelegramLongPollingBot {
+
+    {
+        List<BotCommand> commandList = new ArrayList<>();
+        commandList.add(new BotCommand("/start", " - to start dialog"));
+        commandList.add(new BotCommand("/stop", " - to remove all data and stop dialogs"));
+        commandList.add(new BotCommand("/auth", " - to authorize"));
+        commandList.add(new BotCommand("/help", " - to read help"));
+        try {
+            this.execute(new SetMyCommands(commandList, new BotCommandScopeDefault(), null));
+        }
+        catch (TelegramApiException e) {
+            log.error("Error initialization commands menu: " + e.getMessage());
+        }
+    }
 
     private final TelegramBotsService telegramBotsService;
 
