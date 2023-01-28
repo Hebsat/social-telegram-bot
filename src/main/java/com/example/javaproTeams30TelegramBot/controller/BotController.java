@@ -27,14 +27,14 @@ public class BotController {
                 (notification.getEntityAuthor().getLastName() == null ?
                         "" : " " + notification.getEntityAuthor().getLastName());
         switch (notification.getNotificationType()) {
-            case "POST": return "User " + userName + " create new post \"" + notification.getInfo() + "\"!";
+            case "POST": return "User " + userName + " create new post: \"" + notification.getInfo() + "\"!";
             case "POST_COMMENT":
             case "COMMENT_COMMENT": return "User " + userName + " commented your " + notification.getInfo() + "!";
             case "FRIEND_REQUEST": return "User " + userName + " wants to be your fiend!!";
-            case "MESSAGE": return "User " + userName + " send message to you: " + notification.getInfo();
-            case "FRIEND_BIRTHDAY": return "Your friend " + userName + " has a birthday today! He is " + notification.getInfo();
+            case "MESSAGE": return "User " + userName + " send message to you: \"" + notification.getInfo() + "\"!";
+            case "FRIEND_BIRTHDAY": return "Your friend " + userName + " has a birthday today! He(She) is " + notification.getInfo() + "!";
             case "POST_LIKE": return "User " + userName + " liked your " + notification.getInfo() + "!";
-            default: return "It is unknown notification";
+            default: return "Something happened!";
         }
     }
 }
