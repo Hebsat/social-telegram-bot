@@ -36,6 +36,9 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URL;
 import java.net.URLConnection;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
@@ -58,9 +61,9 @@ public class TelegramBotsService {
             "commands:\n\nMain commands:\n/start - to start the dialog with bot\n/stop - to reset you dialog and " +
             "remove all data\n/auth - to start authorization dialog\n/help - to get this message\n\nAfter " +
             "authorization commands:\n/settings - to set bot properties\n/myself - to get personal data about " +
-            "yourself\n/friends - to get page of your friends\n\nOptional commands:\n/next - to get next page of " +
-            "current dialog's information\n/notification - to set notifications properties\n/unknown - to set unknown" +
-            " property value";
+            "yourself\n/friends - to get page of your friends\n/gratzme - to get greetings message from bot)" +
+            "\n\nOptional commands:\n/next - to get next page of current dialog's information\n/notification - to set" +
+            " notifications properties\n/unknown - to set unknown property value";
     private static final String UNAUTHORIZED_MESSAGE = "You are unauthorized.\nTo authorize use /auth";
 
     private final AuthStatesCache authStatesCache;
@@ -124,6 +127,7 @@ public class TelegramBotsService {
             case "/settings": return handleSettingsCommand(userId);
             case "/myself": return getInfoAboutMyself(userId);
             case "/friends": return getUsersFriendsPage(userId, 0);
+            case "/gratzme": return getGreetingsMessage(userId);
             case "/next": return handleNextCommand(userId);
             case "/notification": return handleNotificationProperty(userId);
             case "/unknown": return handleUnknownProperty(userId);
@@ -245,11 +249,19 @@ public class TelegramBotsService {
     }
 
     private List<SendMessage> getInfoAboutMyself(Long userId) {
+        PersonDto person = getCurrentPerson(userId);
+        if (person == null) {
+            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
+        }
+        return List.of(getSendMessage(userId,PersonMapper.getPersonInfo(person)));
+    }
+
+    private PersonDto getCurrentPerson(Long userId) {
         Type personType = new TypeToken<CommonDto<PersonDto>>(){}.getType();
         String token = userTokenCache.getToken(userId);
         CommonDto<PersonDto> person = new CommonDto<>();
         if (token == null) {
-            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
+            return null;
         }
         try {
             URLConnection connection = new URL(url + "/api/v1/users/me").openConnection();
@@ -260,7 +272,7 @@ public class TelegramBotsService {
         catch (IOException e) {
             log.error(e.getMessage());
         }
-        return List.of(getSendMessage(userId,PersonMapper.getPersonInfo(person.getData())));
+        return person.getData();
     }
 
     private List<SendMessage> getUsersFriendsPage(Long userId, Integer pageNumber) {
@@ -317,6 +329,27 @@ public class TelegramBotsService {
         otherStatesCache.removeUsersStates(userId);
         String answer = "Now you will " + (value ? "" : "not ") + "receive notifications";
         return List.of(getSendMessage(userId, answer));
+    }
+
+    private List<SendMessage> getGreetingsMessage(Long userId) {
+        PersonDto person = getCurrentPerson(userId);
+        if (person == null) {
+            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
+        }
+        LocalDate currentTime = LocalDate.now(ZoneId.of("Europe/Moscow"));
+        StringJoiner answer = new StringJoiner(System.lineSeparator());
+        answer.add("JavaTeam30Bot greetings you, dear " + person.getFirstName() + "!")
+                .add("Today is " + currentTime.getDayOfWeek().name() +  currentTime.format(DateTimeFormatter.ofPattern(", dd.MM.yyyy")))
+                .add("The currencies values are:")
+                .add("\t- USD: " + person.getCurrency().getUsd())
+                .add("\t- EUR: " + person.getCurrency().getEuro());
+        if (person.getWeather().getCity() != null) {
+            answer.add("Weather in " + person.getWeather().getCity() + " are:")
+                    .add("\tTemperature: " + person.getWeather().getTemp() + " °C")
+                    .add("\t" + person.getWeather().getDescription());
+        }
+        answer.add("Have a nice day!");
+        return List.of(getSendMessage(userId, answer.toString()));
     }
 
     private SendMessage getSendMessage(Long userId, String message) {
