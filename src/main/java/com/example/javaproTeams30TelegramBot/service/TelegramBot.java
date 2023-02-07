@@ -20,12 +20,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TelegramBot extends TelegramLongPollingBot {
 
-    {
+    private final TelegramBotsService telegramBotsService;
+
+    @Value("${bot.name}")
+    private String name;
+    @Value("${bot.token}")
+    private String token;
+
+    public void initStartMenu() {
         List<BotCommand> commandList = new ArrayList<>();
-        commandList.add(new BotCommand("/start", " - to start dialog"));
+        commandList.add(new BotCommand("/start", " - to start the dialog with bot"));
         commandList.add(new BotCommand("/stop", " - to remove all data and stop dialogs"));
-        commandList.add(new BotCommand("/auth", " - to authorize"));
-        commandList.add(new BotCommand("/help", " - to read help"));
+        commandList.add(new BotCommand("/auth", " - to start authorization dialog"));
+        commandList.add(new BotCommand("/help", " - to read help message"));
         try {
             this.execute(new SetMyCommands(commandList, new BotCommandScopeDefault(), null));
         }
@@ -33,13 +40,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             log.error("Error initialization commands menu: " + e.getMessage());
         }
     }
-
-    private final TelegramBotsService telegramBotsService;
-
-    @Value("${bot.name}")
-    private String name;
-    @Value("${bot.token}")
-    private String token;
 
     @Override
     public String getBotUsername() {
