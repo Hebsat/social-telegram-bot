@@ -1,70 +1,29 @@
 package com.example.javaproTeams30TelegramBot.service;
 
-import com.example.javaproTeams30TelegramBot.dto.CommonDto;
-import com.example.javaproTeams30TelegramBot.dto.CurrencyDto;
 import com.example.javaproTeams30TelegramBot.dto.PersonDto;
-import com.example.javaproTeams30TelegramBot.dto.WeatherDto;
-import com.example.javaproTeams30TelegramBot.mappers.PersonMapper;
+import com.example.javaproTeams30TelegramBot.util.mappers.PersonMapper;
 import com.example.javaproTeams30TelegramBot.model.AuthStates;
-import com.example.javaproTeams30TelegramBot.model.DataContainer;
 import com.example.javaproTeams30TelegramBot.model.OtherStates;
 import com.example.javaproTeams30TelegramBot.model.SettingsStates;
 import com.example.javaproTeams30TelegramBot.storage.interfaces.*;
-import com.example.javaproTeams30TelegramBot.util.deserializers.CurrenciesDeserializer;
-import com.example.javaproTeams30TelegramBot.util.deserializers.PersonDeserializer;
-import com.example.javaproTeams30TelegramBot.util.deserializers.WeatherDeserializer;
-import com.google.common.reflect.TypeToken;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.util.EntityUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.net.URL;
-import java.net.URLConnection;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TelegramBotsService {
-
-    @Value("${server-url}")
-    private String url;
-    @Value("${bot.pagination.friend-size}")
-    private int friendPageSize;
-    private final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(PersonDto.class, new PersonDeserializer())
-            .registerTypeAdapter(WeatherDto.class, new WeatherDeserializer())
-            .registerTypeAdapter(CurrencyDto.class, new CurrenciesDeserializer())
-            .create();
-    private static final String HELP_MESSAGE = "JavaTeam30Bot is a training project.\nTo control you can sent these " +
-            "commands:\n\nMain commands:\n/start - to start the dialog with bot\n/stop - to reset you dialog and " +
-            "remove all data\n/auth - to start authorization dialog\n/help - to get this message\n\nAfter " +
-            "authorization commands:\n/settings - to set bot properties\n/myself - to get personal data about " +
-            "yourself\n/friends - to get page of your friends\n/gratzme - to get greetings message from bot)" +
-            "\n\nOptional commands:\n/next - to get next page of current dialog's information\n/notification - to set" +
-            " notifications properties\n/unknown - to set unknown property value";
-    private static final String UNAUTHORIZED_MESSAGE = "You are unauthorized.\nTo authorize use /auth";
 
     private final AuthStatesCache authStatesCache;
     private final OtherStatesCache otherStatesCache;
@@ -72,6 +31,7 @@ public class TelegramBotsService {
     private final UserAuthDataCache userAuthDataCache;
     private final UserDialogsDataCache userDialogsDataCache;
     private final UserTokenCache userTokenCache;
+    private final ConnectionsService connectionsService;
 
     public SendMessage startMessageReceived(long userId, String name) {
         String answer = "Greetings you, " + name + "! Welcome to JavaTeam30Bot!\nAuthorize to get more " +
@@ -102,7 +62,7 @@ public class TelegramBotsService {
     }
 
     public SendMessage helpMessageReceived(long userId) {
-        return getSendMessage(userId, HELP_MESSAGE);
+        return getSendMessage(userId, Messages.HELP_MESSAGE);
     }
 
     public List<SendMessage> handleCurrentAuthState(Long userId, String message) {
@@ -116,7 +76,7 @@ public class TelegramBotsService {
             case ASK_PASSWORD: {
                 String email = userAuthDataCache.getUserAuthData(userId);
                 userAuthDataCache.clearUserAuthData(userId);
-                return List.of(getSendMessage(userId, authorizePerson(userId, email, message)));
+                return List.of(getSendMessage(userId, connectionsService.authorizePerson(userId, email, message)));
             }
             default: return handleCurrentMessage(userId, message);
         }
@@ -126,7 +86,8 @@ public class TelegramBotsService {
         switch (message) {
             case "/settings": return handleSettingsCommand(userId);
             case "/myself": return getInfoAboutMyself(userId);
-            case "/friends": return getUsersFriendsPage(userId, 0);
+            case "/friends": return connectionsService.getUsersFriendsPage(userId, 0)
+                    .stream().map(s -> getSendMessage(userId, s)).collect(Collectors.toList());
             case "/gratzme": return getGreetingsMessage(userId);
             case "/next": return handleNextCommand(userId);
             case "/notification": return handleNotificationProperty(userId);
@@ -161,10 +122,10 @@ public class TelegramBotsService {
             }
             case NOTIFICATIONS: {
                 if (message.equals("yes")) {
-                    return setNotificationsStatus(userId, true);
+                    return List.of(getSendMessage(userId, connectionsService.setNotificationsStatus(userId, true)));
 
                 } else if (message.equals("no")) {
-                    return setNotificationsStatus(userId, false);
+                    return List.of(getSendMessage(userId, connectionsService.setNotificationsStatus(userId, false)));
                 }
                 else return List.of(getSendMessage(userId, answer));
             }
@@ -177,7 +138,9 @@ public class TelegramBotsService {
         OtherStates state = otherStatesCache.getCurrentState(userId);
         switch (state) {
             case FRIENDS_PAGINATION:
-                return getUsersFriendsPage(userId, (Integer) userDialogsDataCache.getUserDialogsData(userId).getData());
+                return connectionsService
+                        .getUsersFriendsPage(userId, (Integer) userDialogsDataCache.getUserDialogsData(userId).getData())
+                        .stream().map(s -> getSendMessage(userId, s)).collect(Collectors.toList());
             case POSTS_PAGINATION: return List.of(getSendMessage(userId, answer));
             case COMMENTS_PAGINATION: return List.of(getSendMessage(userId, answer));
             default: return List.of(getSendMessage(userId, answer));
@@ -186,7 +149,7 @@ public class TelegramBotsService {
 
     private List<SendMessage> handleSettingsCommand(Long userId) {
         if (!authStatesCache.getAuthState(userId).equals(AuthStates.AUTHORIZED)) {
-            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
+            return List.of(getSendMessage(userId, Messages.UNAUTHORIZED_MESSAGE));
         }
         String answer = "Select property:\n/notification - to set notifications sending\n/unknown - to set unknown property";
         otherStatesCache.setCurrentState(userId, OtherStates.SETTINGS_DIALOG);
@@ -219,122 +182,18 @@ public class TelegramBotsService {
         return List.of(getSendMessage(userId, answer));
     }
 
-    private String authorizePerson(Long userId, String email, String password) {
-        Type personType = new TypeToken<CommonDto<PersonDto>>(){}.getType();
-        String answer = "";
-        HttpClient httpClient = HttpClientBuilder.create().build();
-        try {
-            HttpPost request = new HttpPost(url + "/api/v1/auth/login");
-            JsonObject login = new JsonObject();
-            login.addProperty("email", email);
-            login.addProperty("password", password);
-            StringEntity params = new StringEntity(login.toString());
-            request.addHeader("content-type", "application/json");
-            request.setEntity(params);
-            HttpResponse response = httpClient.execute(request);
-            if (response.getStatusLine().getStatusCode() != 200) {
-                authStatesCache.setAuthState(userId, AuthStates.UNAUTHORIZED);
-                return "You entered incorrect data. Authorization failed!";
-            }
-            String jsonData = EntityUtils.toString(response.getEntity());
-            CommonDto<PersonDto> person = gson.fromJson(jsonData, personType);
-            userTokenCache.storeToken(userId, person.getData().getToken());
-            answer = "You authorized as " + person.getData().getFirstName() + "! Good job!";
-        }
-        catch (IOException e) {
-            log.error(e.getMessage());
-        }
-        authStatesCache.setAuthState(userId, AuthStates.AUTHORIZED);
-        return answer;
-    }
-
     private List<SendMessage> getInfoAboutMyself(Long userId) {
-        PersonDto person = getCurrentPerson(userId);
+        PersonDto person = connectionsService.getCurrentPerson(userId);
         if (person == null) {
-            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
+            return List.of(getSendMessage(userId, Messages.UNAUTHORIZED_MESSAGE));
         }
-        return List.of(getSendMessage(userId,PersonMapper.getPersonInfo(person)));
-    }
-
-    private PersonDto getCurrentPerson(Long userId) {
-        Type personType = new TypeToken<CommonDto<PersonDto>>(){}.getType();
-        String token = userTokenCache.getToken(userId);
-        CommonDto<PersonDto> person = new CommonDto<>();
-        if (token == null) {
-            return null;
-        }
-        try {
-            URLConnection connection = new URL(url + "/api/v1/users/me").openConnection();
-            connection.setRequestProperty("Authorization", token);
-            String jsonData = new String(connection.getInputStream().readAllBytes());
-            person = gson.fromJson(jsonData, personType);
-        }
-        catch (IOException e) {
-            log.error(e.getMessage());
-        }
-        return person.getData();
-    }
-
-    private List<SendMessage> getUsersFriendsPage(Long userId, Integer pageNumber) {
-        Type listOfPersons = new TypeToken<CommonDto<List<PersonDto>>>(){}.getType();
-        String token = userTokenCache.getToken(userId);
-        if (token == null) {
-            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
-        }
-        List<SendMessage> answer = new ArrayList<>();
-        try {
-            URLConnection connection = new URL(url + "/api/v1/friends?offset=" +
-                    pageNumber + "&perPage=" + friendPageSize).openConnection();
-            connection.setRequestProperty("Authorization", token);
-            String jsonData = new String(connection.getInputStream().readAllBytes());
-            CommonDto<List<PersonDto>> persons = gson.fromJson(jsonData, listOfPersons);
-            persons.getData().forEach(personDto -> answer.add(getSendMessage(userId, PersonMapper.getPersonInfo(personDto))));
-            int friendsShown = persons.getData().size() + pageNumber * friendPageSize;
-            StringJoiner closeMessage = new StringJoiner("\n");
-            closeMessage.add("You have totally " + persons.getTotal() + " friends.");
-            if (friendsShown < persons.getTotal()) {
-                userDialogsDataCache.storeUserDialogsData(userId, DataContainer.<Integer>builder().data(pageNumber + 1).build());
-                otherStatesCache.setCurrentState(userId, OtherStates.FRIENDS_PAGINATION);
-                closeMessage.add("You are shown " + friendsShown + " friends").add("To view next friends page send /next");
-            }
-            else {
-                userDialogsDataCache.clearUserDialogsData(userId);
-                otherStatesCache.removeUsersStates(userId);
-            }
-            answer.add(getSendMessage(userId, closeMessage.toString()));
-        }
-        catch (IOException e) {
-            log.error(e.getMessage());
-        }
-        return answer;
-    }
-
-    private List<SendMessage> setNotificationsStatus(Long userId, boolean value) {
-        String token = userTokenCache.getToken(userId);
-        HttpClient httpClient = HttpClientBuilder.create().build();
-        try {
-            HttpPut request = new HttpPut(url + "/api/v1/account/telegram?telegramId=" + userId + "&value=" + value);
-            request.addHeader("Authorization", token);
-            HttpResponse response = httpClient.execute(request);
-            if (response.getStatusLine().getStatusCode() != 200) {
-                settingsStatesCache.removeCurrentSettingsStates(userId);
-                otherStatesCache.removeUsersStates(userId);
-                return List.of(getSendMessage(userId, "Notifications status wasn't set. Repeat later"));
-            }
-        }
-        catch (IOException e) {
-            log.error(e.getMessage());
-        }
-        settingsStatesCache.removeCurrentSettingsStates(userId);
-        otherStatesCache.removeUsersStates(userId);
-        String answer = "Now you will " + (value ? "" : "not ") + "receive notifications";
-        return List.of(getSendMessage(userId, answer));
+        return List.of(getSendMessage(userId, PersonMapper.getPersonInfo(person)));
     }
 
     private List<SendMessage> getGreetingsMessage(Long userId) {
-        PersonDto person = getCurrentPerson(userId);
+        PersonDto person = connectionsService.getCurrentPerson(userId);
         if (person == null) {
-            return List.of(getSendMessage(userId, UNAUTHORIZED_MESSAGE));
+            return List.of(getSendMessage(userId, Messages.UNAUTHORIZED_MESSAGE));
         }
         LocalDate currentTime = LocalDate.now(ZoneId.of("Europe/Moscow"));
         StringJoiner answer = new StringJoiner(System.lineSeparator());

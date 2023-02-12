@@ -1,4 +1,4 @@
-package com.example.javaproTeams30TelegramBot.mappers;
+package com.example.javaproTeams30TelegramBot.util.mappers;
 
 import com.example.javaproTeams30TelegramBot.dto.PersonDto;
 
