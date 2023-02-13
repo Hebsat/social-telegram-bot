@@ -1,8 +1,8 @@
 server:
-  port: 8087
+  port: xxxx
 bot:
-  name: JavaTeam30Bot
-  token: 5821691600:AAHeMv01ySdp63uglQ1ob0VQh3zSs_LagEA
+  name: xxxxxxx
+  token: xxxxxxxxxxxxxxxxxxx
   pagination:
     friend-size: 3
-server-url: http://194.87.244.66:8086
+server-url: http://xxx.xxx.xxx.xxx:xxxx
