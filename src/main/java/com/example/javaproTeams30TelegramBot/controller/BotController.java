@@ -32,7 +32,7 @@ public class BotController {
             case "COMMENT_COMMENT": return "User " + userName + " commented your " + notification.getInfo() + "!";
             case "FRIEND_REQUEST": return "User " + userName + " wants to be your fiend!";
             case "MESSAGE": return "User " + userName + " send message to you: \"" + notification.getInfo() + "\"!";
-            case "FRIEND_BIRTHDAY": return "Your friend " + userName + " has a birthday today! He(She) is " + notification.getInfo() + "!";
+            case "FRIEND_BIRTHDAY": return "Your friend " + userName + " has a birthday today! S/He is " + notification.getInfo() + "!";
             case "POST_LIKE": return "User " + userName + " liked your " + notification.getInfo() + "!";
             default: return "Something happened!";
         }
