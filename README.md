@@ -2,7 +2,11 @@
 ![Version](https://img.shields.io/badge/version-1.0-blue.svg?cacheSeconds=2592000)
 
 > Телеграм бот для социальной сети https://github.com/Hebsat/socialNetwork-teamProject.<br>
-> Бот написан на основе TelegramLongPollingBot.
+> Бот написан на ЯП Java основе TelegramLongPollingBot.<br>
+> Стек использованных технологий и инструментов: 
+> - Java + SpringBoot + lombok
+> - telegrambots
+> - gson
 
 
 ## Автор
